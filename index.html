@@ -536,14 +536,26 @@
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Firebase初期設定 ---
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
+        // --- Firebase/ローカル保存 自動切替 ---
+        let useCloud = false;
+        let app, auth, db, appId;
         let currentUser = null;
+
+        try {
+            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            if (configStr && configStr.trim() !== '{}' && configStr.trim() !== '') {
+                const firebaseConfig = JSON.parse(configStr);
+                if (Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    useCloud = true;
+                }
+            }
+        } catch (error) {
+            console.warn("クラウド設定が見つかりません。ローカル保存モードで動作します。", error);
+        }
 
         // --- 状態管理 ---
         let categories = ['人工呼吸器', '血液浄化', '体外循環', '医療機器管理', '医療安全', '基礎技術']; // 初期値
@@ -554,17 +566,44 @@
 
         // --- 初期化 ---
         document.addEventListener("DOMContentLoaded", () => {
-            initAuth();
+            if (useCloud) {
+                initAuth();
+            } else {
+                loadLocalData(); // クラウド設定がなければローカルから読み込む
+            }
+            
             generateTimeOptions();
             switchTab('dashboard');
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('first-record-date').value = today;
             document.getElementById('quick-record-date').value = today;
         });
 
-        // --- 認証とリアルタイムデータ同期 ---
+        // --- ローカルデータ管理 (クラウド無効時のフォールバック) ---
+        function loadLocalData() {
+            const savedCategories = localStorage.getItem('ceAppCategories');
+            const savedItems = localStorage.getItem('ceAppItems');
+            const savedRecords = localStorage.getItem('ceAppRecords');
+
+            if (savedCategories) categories = JSON.parse(savedCategories);
+            if (savedItems) items = JSON.parse(savedItems);
+            if (savedRecords) records = JSON.parse(savedRecords);
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('ceAppCategories', JSON.stringify(categories));
+            localStorage.setItem('ceAppItems', JSON.stringify(items));
+            localStorage.setItem('ceAppRecords', JSON.stringify(records));
+            
+            updateCategorySelect('item-category');
+            renderItemsList();
+            renderCategoriesView();
+            updateDashboard();
+        }
+
+        // --- 認証とリアルタイムデータ同期 (クラウド有効時) ---
         async function initAuth() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -577,17 +616,18 @@
             }
         }
 
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            if (user) {
-                setupRealtimeListeners();
-            }
-        });
+        if (useCloud) {
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                if (user) {
+                    setupRealtimeListeners();
+                }
+            });
+        }
 
         function setupRealtimeListeners() {
-            if (!currentUser) return;
+            if (!currentUser || !useCloud) return;
 
-            // カテゴリ設定の購読
             const settingsRef = collection(db, 'artifacts', appId, 'public', 'data', 'settings');
             onSnapshot(settingsRef, (snapshot) => {
                 let loadedCategories = null;
@@ -599,7 +639,6 @@
                 if (loadedCategories && loadedCategories.length > 0) {
                     categories = loadedCategories;
                 } else {
-                    // クラウドにまだない場合は初期値を保存
                     saveCategoriesToCloud(categories);
                 }
                 updateCategorySelect('item-category');
@@ -607,27 +646,23 @@
                 renderCategoriesView();
             }, (error) => console.error("設定読み込みエラー:", error));
 
-            // 教育項目の購読
             const itemsRef = collection(db, 'artifacts', appId, 'public', 'data', 'items');
             onSnapshot(itemsRef, (snapshot) => {
                 items = [];
                 snapshot.forEach((doc) => {
                     items.push({ id: doc.id, ...doc.data() });
                 });
-                // 更新があったら画面を再描画
                 renderItemsList();
                 renderCategoriesView();
                 updateDashboard();
             }, (error) => console.error("項目読み込みエラー:", error));
 
-            // 教育履歴の購読
             const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
             onSnapshot(recordsRef, (snapshot) => {
                 records = [];
                 snapshot.forEach((doc) => {
                     records.push({ id: doc.id, ...doc.data() });
                 });
-                // 更新があったら画面を再描画
                 renderRecords();
                 updateDashboard();
                 renderItemsList(); 
@@ -686,7 +721,7 @@
                 modal.classList.remove('modal-active');
                 setTimeout(() => modal.classList.add('hidden'), 300);
             }
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         // --- タブ制御 ---
@@ -798,7 +833,6 @@
                 });
             }
             
-            // 日付の降順
             displayRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
             
             if(displayRecords.length === 0) {
@@ -860,7 +894,7 @@
                 `;
             });
             tbody.innerHTML = html;
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         };
 
         // --- アコーディオン (教育項目一覧) 処理 ---
@@ -948,7 +982,7 @@
                 `;
             });
             container.innerHTML = html;
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         };
 
         window.toggleAccordion = function(id) {
@@ -964,7 +998,7 @@
         };
 
         // --- カテゴリ別ビュー ---
-        function renderCategoriesView() {
+        window.renderCategoriesView = function() {
             const container = document.getElementById('category-groups-container');
             const noMsg = document.getElementById('no-category-groups-message');
             
@@ -1018,10 +1052,10 @@
             });
             
             container.innerHTML = html;
-            lucide.createIcons();
-        }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
 
-        // --- Firebase保存処理関数群 ---
+        // --- 保存処理関数群 (ハイブリッド対応) ---
 
         window.updateCategorySelect = function(selectId) {
             const select = document.getElementById(selectId);
@@ -1057,51 +1091,63 @@
 
         window.saveEducationItem = async function(e) {
             e.preventDefault();
-            if (!currentUser) return;
-
             const editId = document.getElementById('item-edit-id').value;
             const title = document.getElementById('item-title').value.trim();
             const category = document.getElementById('item-category').value;
             const description = document.getElementById('item-description').value.trim();
-            
             const targetItemId = editId || generateId();
-            const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', targetItemId);
 
-            try {
-                // 項目の保存
-                await setDoc(itemRef, {
-                    title,
-                    category,
-                    description,
-                    createdAt: editId ? (items.find(i=>i.id===editId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
-                }, { merge: true });
+            if (useCloud) {
+                if (!currentUser) return;
+                try {
+                    const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', targetItemId);
+                    await setDoc(itemRef, {
+                        title, category, description,
+                        createdAt: editId ? (items.find(i=>i.id===editId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+                    }, { merge: true });
 
-                // 新規作成時の初回履歴登録
-                if (!editId) {
+                    if (!editId) {
+                        const date = document.getElementById('first-record-date').value;
+                        const trainer = document.getElementById('first-record-trainer').value.trim();
+                        const content = document.getElementById('first-record-content').value.trim();
+                        if(date && trainer) {
+                            const recRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', generateId());
+                            await setDoc(recRef, {
+                                itemId: targetItemId, date: date, trainer: trainer,
+                                startTime: document.getElementById('first-record-start').value,
+                                endTime: document.getElementById('first-record-end').value,
+                                content: content || '初回登録',
+                                feedbackStatus: '', feedbackText: ''
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error("保存エラー:", error);
+                }
+            } else {
+                // ローカル処理
+                if (editId) {
+                    const idx = items.findIndex(i => i.id === editId);
+                    if (idx > -1) {
+                        items[idx].title = title; items[idx].category = category; items[idx].description = description;
+                    }
+                } else {
+                    items.push({ id: targetItemId, title, category, description, createdAt: new Date().toISOString() });
                     const date = document.getElementById('first-record-date').value;
                     const trainer = document.getElementById('first-record-trainer').value.trim();
-                    const content = document.getElementById('first-record-content').value.trim();
-                    
-                    if(date && trainer) {
-                        const recId = generateId();
-                        const recRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', recId);
-                        await setDoc(recRef, {
-                            itemId: targetItemId,
-                            date: date,
-                            trainer: trainer,
+                    if (date && trainer) {
+                        records.push({
+                            id: generateId(), itemId: targetItemId, date: date, trainer: trainer,
                             startTime: document.getElementById('first-record-start').value,
                             endTime: document.getElementById('first-record-end').value,
-                            content: content || '初回登録',
-                            feedbackStatus: '',
-                            feedbackText: ''
+                            content: document.getElementById('first-record-content').value.trim() || '初回登録',
+                            feedbackStatus: '', feedbackText: ''
                         });
                     }
                 }
-                closeItemModal();
-            } catch (error) {
-                console.error("保存エラー:", error);
-                alert("保存に失敗しました。");
+                saveLocalData();
             }
+            closeItemModal();
         };
 
         window.confirmDelete = function(type, id) {
@@ -1118,34 +1164,39 @@
         window.closeDeleteModal = function() { toggleModal('delete-modal', false); };
         
         document.getElementById('delete-confirm-btn').addEventListener('click', async () => {
-            if (!currentUser) return;
             const { type, id } = deleteInfo;
             
-            try {
+            if (useCloud) {
+                if (!currentUser) return;
+                try {
+                    if (type === 'item') {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', id));
+                        const relatedRecords = records.filter(r => r.itemId === id);
+                        for (const r of relatedRecords) {
+                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id));
+                        }
+                    } else if (type === 'record') {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id));
+                    } else if (type === 'category') {
+                        if (items.some(i => i.category === id)) { alert('使用中のため削除できません。'); return closeDeleteModal(); }
+                        await saveCategoriesToCloud(categories.filter(c => c !== id));
+                    }
+                } catch (error) { console.error("削除エラー:", error); }
+            } else {
+                // ローカル処理
                 if (type === 'item') {
-                    // 項目の削除
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', id));
-                    // 紐づく履歴の削除
-                    const relatedRecords = records.filter(r => r.itemId === id);
-                    for (const r of relatedRecords) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id));
-                    }
+                    items = items.filter(i => i.id !== id);
+                    records = records.filter(r => r.itemId !== id);
                 } else if (type === 'record') {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id));
+                    records = records.filter(r => r.id !== id);
                 } else if (type === 'category') {
-                    const isUsed = items.some(i => i.category === id);
-                    if(isUsed) {
-                        alert('このカテゴリは使用中のため削除できません。');
-                        closeDeleteModal();
-                        return;
-                    }
-                    const newCategories = categories.filter(c => c !== id);
-                    await saveCategoriesToCloud(newCategories);
+                    if (items.some(i => i.category === id)) { alert('使用中のため削除できません。'); return closeDeleteModal(); }
+                    categories = categories.filter(c => c !== id);
                 }
-                closeDeleteModal();
-            } catch (error) {
-                console.error("削除エラー:", error);
+                saveLocalData();
+                if (type === 'category') updateCategoryModalList();
             }
+            closeDeleteModal();
         });
 
         window.openFeedbackModal = function(recordId) {
@@ -1182,23 +1233,25 @@
         window.closeFeedbackModal = function() { toggleModal('feedback-modal', false); };
         
         window.saveFeedback = async function() {
-            if (!currentUser) return;
             const id = document.getElementById('feedback-record-id').value;
             const status = document.getElementById('feedback-status-value').value;
             const text = document.getElementById('feedback-text').value.trim();
+            if(!status || !text) return alert('ステータスと詳細コメントは必須です。');
             
-            if(!status || !text) {
-                alert('ステータスと詳細コメントは必須です。');
-                return;
+            if (useCloud) {
+                if (!currentUser) return;
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id), { feedbackStatus: status, feedbackText: text }, { merge: true });
+                } catch (error) { console.error("評価保存エラー:", error); }
+            } else {
+                const idx = records.findIndex(r => r.id === id);
+                if(idx > -1) {
+                    records[idx].feedbackStatus = status;
+                    records[idx].feedbackText = text;
+                    saveLocalData();
+                }
             }
-            
-            try {
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'records', id);
-                await setDoc(ref, { feedbackStatus: status, feedbackText: text }, { merge: true });
-                closeFeedbackModal();
-            } catch (error) {
-                console.error("評価保存エラー:", error);
-            }
+            closeFeedbackModal();
         };
 
         window.openQuickRecordModal = function(itemId, editRecordId = null) {
@@ -1227,9 +1280,8 @@
                 document.getElementById('quick-record-edit-id').value = '';
                 document.getElementById('quick-record-date').value = new Date().toISOString().split('T')[0];
             }
-            
             updateCharCount('quick-record-content', 'char-counter-quick-content');
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             toggleModal('quick-record-modal', true);
         };
 
@@ -1237,12 +1289,9 @@
 
         window.saveQuickRecord = async function(e) {
             e.preventDefault();
-            if (!currentUser) return;
-            
             const itemId = document.getElementById('quick-record-item-id').value;
             const editId = document.getElementById('quick-record-edit-id').value;
             const targetId = editId || generateId();
-            
             const newData = {
                 itemId: itemId,
                 date: document.getElementById('quick-record-date').value,
@@ -1252,17 +1301,23 @@
                 content: document.getElementById('quick-record-content').value.trim()
             };
             
-            try {
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'records', targetId);
+            if (useCloud) {
+                if (!currentUser) return;
+                try {
+                    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'records', targetId);
+                    if(editId) await setDoc(ref, newData, { merge: true });
+                    else await setDoc(ref, { ...newData, feedbackStatus: '', feedbackText: '' });
+                } catch (error) { console.error("履歴保存エラー:", error); }
+            } else {
                 if(editId) {
-                    await setDoc(ref, newData, { merge: true });
+                    const idx = records.findIndex(r => r.id === editId);
+                    if(idx > -1) records[idx] = { ...records[idx], ...newData };
                 } else {
-                    await setDoc(ref, { ...newData, feedbackStatus: '', feedbackText: '' });
+                    records.push({ id: targetId, ...newData, feedbackStatus: '', feedbackText: '' });
                 }
-                closeQuickRecordModal();
-            } catch (error) {
-                console.error("履歴保存エラー:", error);
+                saveLocalData();
             }
+            closeQuickRecordModal();
         };
 
         window.openCategoryModal = function() {
@@ -1283,7 +1338,7 @@
                     <button onclick="confirmDelete('category', '${c}')" class="text-slate-400 hover:text-rose-600 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
                 </div>
             `).join('');
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         };
         
         window.addCategory = async function() {
@@ -1291,20 +1346,22 @@
             const val = input.value.trim();
             if(val && !categories.includes(val)) {
                 const newCategories = [...categories, val];
-                await saveCategoriesToCloud(newCategories);
+                if (useCloud) {
+                    await saveCategoriesToCloud(newCategories);
+                } else {
+                    categories = newCategories;
+                    saveLocalData();
+                    updateCategoryModalList();
+                }
                 input.value = '';
             }
         };
 
         async function saveCategoriesToCloud(newCategoriesList) {
-            if (!currentUser) return;
+            if (!currentUser || !useCloud) return;
             try {
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categories');
-                await setDoc(ref, { list: newCategoriesList });
-                // onSnapshotが検知してUIを更新するため、ここではあえてUI更新を直接呼ばない
-            } catch (error) {
-                console.error("カテゴリ保存エラー:", error);
-            }
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categories'), { list: newCategoriesList });
+            } catch (error) { console.error("カテゴリ保存エラー:", error); }
         }
     </script>
 </body>
