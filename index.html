@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CE教育アプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+        }
+        /* スクロールバーのカスタマイズ */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* アニメーション関連 */
+        .accordion-content {
+            transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        .accordion-content.open {
+            max-height: 1000px; /* 十分な高さを確保 */
+            opacity: 1;
+        }
+        /* スクロールバー非表示ユーティリティ */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .modal-active {
+            display: flex !important;
+            opacity: 1 !important;
+        }
+        .modal-active > div {
+            transform: scale(1) !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- ナビゲーションバー -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-teal-600 text-white p-2 rounded-lg flex items-center justify-center shadow-md">
+                        <i data-lucide="heart-pulse" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-lg font-bold text-slate-900 tracking-wider block leading-none">CE教育アプリ</span>
+                    </div>
+                </div>
+                <!-- タブメニュー -->
+                <div class="flex space-x-1 sm:space-x-2 my-auto overflow-x-auto py-1 scrollbar-hide">
+                    <button id="tab-btn-dashboard" onclick="switchTab('dashboard')" class="px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-all duration-200 bg-teal-50 text-teal-700 border border-teal-200/50 whitespace-nowrap">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        <span>ダッシュボード</span>
+                    </button>
+                    <button id="tab-btn-items" onclick="switchTab('items')" class="px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-all duration-200 text-slate-600 hover:bg-slate-100 whitespace-nowrap">
+                        <i data-lucide="bookmark" class="w-4 h-4"></i>
+                        <span>教育項目一覧</span>
+                    </button>
+                    <button id="tab-btn-categories" onclick="switchTab('categories')" class="px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-all duration-200 text-slate-600 hover:bg-slate-100 whitespace-nowrap">
+                        <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                        <span>カテゴリ別一覧</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- ==================== ダッシュボードタブ ==================== -->
+        <div id="tab-content-dashboard" class="space-y-8 animate-fadeIn">
+            
+            <!-- サマリーステータスカード -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                        <i data-lucide="book-open" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500 font-medium">登録教育項目数</p>
+                        <p id="stat-total-items" class="text-2xl font-bold text-slate-900">0</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-teal-50 text-teal-600 rounded-xl">
+                        <i data-lucide="calendar-days" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500 font-medium">総教育実施回数</p>
+                        <p id="stat-total-records" class="text-2xl font-bold text-slate-900">0</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500 font-medium">総教育時間</p>
+                        <p id="stat-total-hours" class="text-2xl font-bold text-slate-900">0時間</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500 font-medium">理解度チェック完了率</p>
+                        <p id="stat-feedback-rate" class="text-2xl font-bold text-slate-900">0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- カテゴリ別クイックアクセス -->
+            <div class="bg-slate-50/50 p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col hidden" id="dashboard-quick-access-section">
+                <div class="relative">
+                    <div class="flex items-center space-x-3 overflow-x-auto pb-4 mb-2 scrollbar-hide border-b border-slate-200/60" id="dashboard-category-tabs">
+                        <!-- JSで生成 -->
+                    </div>
+                    <div class="absolute right-0 top-0 bottom-6 w-12 bg-gradient-to-l from-slate-50/80 to-transparent pointer-events-none rounded-r-2xl"></div>
+                </div>
+                <div id="dashboard-category-items" class="space-y-3 mt-4">
+                    <!-- JSで生成 -->
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- 教育履歴一覧 (Left - 2/3) -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="list" class="w-5 h-5 text-teal-600"></i>
+                            <h2 class="text-lg font-bold text-slate-900">実施済み教育一覧</h2>
+                        </div>
+                        <div class="flex items-center space-x-3 w-full sm:w-auto">
+                            <div class="relative flex-grow sm:flex-none">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+                                </span>
+                                <input type="text" id="record-search" oninput="renderRecords()" placeholder="キーワードで検索..." class="pl-9 pr-4 py-2 w-full sm:w-64 rounded-lg border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto border border-slate-100 rounded-xl">
+                        <table class="min-w-full divide-y divide-slate-100 text-sm">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 tracking-wider">教育日 / 時間</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 tracking-wider">教育項目</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 tracking-wider">担当者</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 tracking-wider">内容 / 理解度</th>
+                                    <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-slate-500 tracking-wider">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records-table-body" class="bg-white divide-y divide-slate-100">
+                                <!-- JSで挿入 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="no-records-message" class="hidden text-center py-12 text-slate-400">
+                        <i data-lucide="info" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+                        登録された教育履歴はありません。
+                    </div>
+                </div>
+
+                <!-- カレンダーセクション (Right - 1/3) -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-max">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="calendar" class="w-5 h-5 text-teal-600"></i>
+                            <h2 class="text-lg font-bold text-slate-900">カレンダー</h2>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="changeMonth(-1)" class="p-1 hover:bg-slate-100 rounded transition"><i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i></button>
+                            <span id="calendar-month-year" class="font-bold text-slate-700 text-sm w-20 text-center"></span>
+                            <button onclick="changeMonth(1)" class="p-1 hover:bg-slate-100 rounded transition"><i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-1 text-center font-semibold text-xs text-slate-500 mb-2 border-b border-slate-100 pb-2">
+                        <div class="text-rose-500">日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div class="text-blue-500">土</div>
+                    </div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1">
+                        <!-- JSで挿入 -->
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-4 text-center">日付をクリックするとその日の履歴を検索します</p>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- ==================== 教育項目一覧タブ ==================== -->
+        <div id="tab-content-items" class="hidden space-y-6 animate-fadeIn">
+            
+            <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex-grow">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                        <span class="bg-teal-500 w-2 h-5 rounded-full block"></span>
+                        <span>登録済み教育項目一覧</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">教育項目を開くと、すべての指導履歴を時系列で確認できます。</p>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+                        </span>
+                        <input type="text" id="item-search" oninput="renderItemsList()" placeholder="項目名で検索..." class="pl-9 pr-4 py-2 w-full sm:w-60 rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border">
+                    </div>
+                    <button onclick="openItemModal()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-5 rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-sm whitespace-nowrap">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>新規項目を登録</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- アコーディオンリスト -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div id="items-list-container" class="space-y-4">
+                    <!-- JSで挿入 -->
+                </div>
+                <div id="no-items-message" class="hidden text-center py-16 text-slate-400">
+                    <i data-lucide="folder-open" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+                    該当する教育項目がありません。
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- ==================== カテゴリ別教育一覧タブ ==================== -->
+        <div id="tab-content-categories" class="hidden space-y-6 animate-fadeIn">
+            
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="border-b border-slate-100 pb-4 mb-6">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                        <span class="bg-teal-500 w-2 h-5 rounded-full block"></span>
+                        <span>カテゴリ別教育内容・進捗状況</span>
+                    </h2>
+                </div>
+
+                <div id="category-groups-container" class="space-y-8">
+                    <!-- JSで挿入 -->
+                </div>
+
+                <div id="no-category-groups-message" class="hidden text-center py-16 text-slate-400">
+                    <i data-lucide="folder-open" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+                    表示できるカテゴリデータがありません。
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-400 text-xs">
+            &copy; 2026 CE教育アプリ. 医療安全およびプライバシー管理を遵守してご利用ください。
+        </div>
+    </footer>
+
+
+    <!-- ==================== モーダルダイアログ群 ==================== -->
+
+    <!-- ① 新規・編集 教育項目モーダル -->
+    <div id="item-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center space-x-2 text-teal-600">
+                    <i data-lucide="tag" class="w-5 h-5"></i>
+                    <h2 id="item-modal-title" class="text-lg font-bold text-slate-900">新規教育項目の登録</h2>
+                </div>
+                <button type="button" onclick="closeItemModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="item-form" onsubmit="saveEducationItem(event)" class="space-y-4">
+                <input type="hidden" id="item-edit-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">教育項目名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="item-title" required placeholder="例: 静脈内留置針の穿刺技術" class="w-full rounded-lg border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-2">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">カテゴリ <span class="text-red-500">*</span></label>
+                    <div class="flex space-x-2">
+                        <select id="item-category" required class="flex-grow rounded-lg border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-2">
+                            <!-- JS -->
+                        </select>
+                        <button type="button" onclick="openCategoryModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition text-xs font-semibold flex items-center space-x-1">
+                            <i data-lucide="settings" class="w-3.5 h-3.5"></i><span>設定</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">概要・標準教育要件</label>
+                    <textarea id="item-description" rows="3" placeholder="教育項目の目的やクリア要件を記入します。" class="w-full rounded-lg border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-2 resize-none"></textarea>
+                </div>
+
+                <!-- 初回教育履歴の同時登録 -->
+                <div id="first-record-section" class="border-t border-dashed border-slate-200 pt-4 mt-2 space-y-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                    <span class="block text-xs font-bold text-teal-700 flex items-center space-x-1">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span>【任意】初回の教育実施も同時に記録する</span>
+                    </span>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">初回教育日</label>
+                            <input type="date" id="first-record-date" class="w-full rounded-lg border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-1.5">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">教育担当者</label>
+                            <input type="text" id="first-record-trainer" placeholder="担当者名" class="w-full rounded-lg border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-1.5">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">開始時間</label>
+                            <select id="first-record-start" class="w-full rounded-lg border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-1.5"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">終了時間</label>
+                            <select id="first-record-end" class="w-full rounded-lg border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-1.5"></select>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="text-[10px] font-semibold text-slate-500">指導・教育内容</label>
+                            <span id="char-counter-first-content" class="text-[9px] text-slate-400">0 / 200</span>
+                        </div>
+                        <textarea id="first-record-content" maxlength="200" oninput="updateCharCount('first-record-content', 'char-counter-first-content')" rows="2" placeholder="実施した手順、指導ポイントなど。" class="w-full rounded-lg border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 bg-slate-50 border p-1.5 resize-none"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 pt-2 justify-end">
+                    <button type="button" onclick="closeItemModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg transition text-sm">キャンセル</button>
+                    <button type="submit" id="item-submit-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-5 rounded-lg shadow-sm transition flex items-center space-x-2 text-sm">
+                        <i data-lucide="save" class="w-4 h-4"></i><span>保存する</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ② 削除確認モーダル -->
+    <div id="delete-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+            <div class="flex items-center space-x-3 text-red-600 mb-4">
+                <div class="p-2 bg-red-50 rounded-lg">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold">削除の確認</h3>
+            </div>
+            <p id="delete-modal-text" class="text-sm text-slate-600 mb-6">
+                このデータを削除してもよろしいですか？この操作は取り消すことができません。
+            </p>
+            <div class="flex space-x-3 justify-end">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm">キャンセル</button>
+                <button id="delete-confirm-btn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm">削除する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ③ 理解度チェック編集モーダル -->
+    <div id="feedback-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
+            <div class="flex items-center space-x-3 text-emerald-600 mb-4">
+                <div class="p-2 bg-emerald-50 rounded-lg">
+                    <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold">理解度チェックの記録</h3>
+            </div>
+            
+            <input type="hidden" id="feedback-record-id">
+            
+            <div class="space-y-4">
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold block mb-1">対象教育項目</span>
+                    <p id="feedback-target-title" class="text-sm font-bold text-slate-700 bg-slate-50 p-2 rounded"></p>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">評価ステータス <span class="text-red-500">*</span></label>
+                    <div class="grid grid-cols-3 gap-2" id="feedback-status-group">
+                        <button type="button" onclick="setFeedbackStatus('A')" id="btn-status-A" class="border rounded-lg py-2 text-xs font-semibold text-center transition hover:bg-emerald-50 text-slate-600 border-slate-200">A: 自立可能</button>
+                        <button type="button" onclick="setFeedbackStatus('B')" id="btn-status-B" class="border rounded-lg py-2 text-xs font-semibold text-center transition hover:bg-amber-50 text-slate-600 border-slate-200">B: 要見守り</button>
+                        <button type="button" onclick="setFeedbackStatus('C')" id="btn-status-C" class="border rounded-lg py-2 text-xs font-semibold text-center transition hover:bg-rose-50 text-slate-600 border-slate-200">C: 要指導</button>
+                    </div>
+                    <input type="hidden" id="feedback-status-value">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-semibold text-slate-600">評価の詳細コメント <span class="text-red-500">*</span></label>
+                        <span id="char-counter-feedback" class="text-[10px] text-slate-400">0 / 200</span>
+                    </div>
+                    <textarea id="feedback-text" maxlength="200" oninput="updateCharCount('feedback-text', 'char-counter-feedback')" rows="4" placeholder="実技評価、口頭試問の結果など" class="w-full rounded-lg border-slate-200 text-sm focus:border-emerald-500 focus:ring-emerald-500 bg-slate-50 border p-2 resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex space-x-3 justify-end mt-6">
+                <button onclick="closeFeedbackModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm">キャンセル</button>
+                <button onclick="saveFeedback()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition text-sm">評価を保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ④ カテゴリ管理モーダル -->
+    <div id="category-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+            <div class="flex items-center space-x-3 text-slate-700 mb-4">
+                <div class="p-2 bg-slate-100 rounded-lg">
+                    <i data-lucide="settings" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold">カテゴリ設定</h3>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">新規カテゴリの追加</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="new-category-name" placeholder="例: ICU研修" class="flex-grow rounded-lg border-slate-200 text-sm focus:border-teal-500 bg-slate-50 border p-2">
+                        <button onclick="addCategory()" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition">追加</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-2">登録中のカテゴリ</label>
+                    <div id="category-modal-list" class="space-y-1.5 max-h-48 overflow-y-auto border border-slate-100 rounded-lg p-2 bg-slate-50">
+                        <!-- JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button onclick="closeCategoryModal()" class="px-4 py-2 bg-slate-800 text-white rounded-lg transition text-sm">完了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ⑤ クイック教育履歴追加/編集モーダル -->
+    <div id="quick-record-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
+            <div class="flex items-center space-x-3 text-indigo-600 mb-4">
+                <div class="p-2 bg-indigo-50 rounded-lg">
+                    <i data-lucide="file-plus" class="w-6 h-6" id="quick-record-icon"></i>
+                </div>
+                <h3 class="text-lg font-bold" id="quick-record-title">教育履歴の登録</h3>
+            </div>
+            
+            <form id="quick-record-form" onsubmit="saveQuickRecord(event)" class="space-y-4">
+                <input type="hidden" id="quick-record-item-id">
+                <input type="hidden" id="quick-record-edit-id">
+                
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold block mb-1">対象教育項目</span>
+                    <p id="quick-record-target-title" class="text-sm font-bold text-slate-700 bg-slate-50 border border-slate-100 p-2.5 rounded-lg"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">教育日 <span class="text-red-500">*</span></label>
+                        <input type="date" id="quick-record-date" required class="w-full rounded-lg border-slate-200 text-sm focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50 border p-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">担当者 <span class="text-red-500">*</span></label>
+                        <input type="text" id="quick-record-trainer" required placeholder="例: 山田" class="w-full rounded-lg border-slate-200 text-sm focus:border-indigo-500 bg-slate-50 border p-2">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">開始時間 <span class="text-red-500">*</span></label>
+                        <select id="quick-record-start" required class="w-full rounded-lg border-slate-200 text-sm focus:border-indigo-500 bg-slate-50 border p-2"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">終了時間 <span class="text-red-500">*</span></label>
+                        <select id="quick-record-end" required class="w-full rounded-lg border-slate-200 text-sm focus:border-indigo-500 bg-slate-50 border p-2"></select>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-semibold text-slate-600">指導内容 <span class="text-red-500">*</span></label>
+                        <span id="char-counter-quick-content" class="text-[10px] text-slate-400">0 / 200</span>
+                    </div>
+                    <textarea id="quick-record-content" required maxlength="200" oninput="updateCharCount('quick-record-content', 'char-counter-quick-content')" rows="3" placeholder="指導ポイントなど" class="w-full rounded-lg border-slate-200 text-sm focus:border-indigo-500 bg-slate-50 border p-2 resize-none"></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-2">
+                    <button type="button" onclick="closeQuickRecordModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm">キャンセル</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition text-sm flex items-center space-x-2">
+                        <i data-lucide="save" class="w-4 h-4"></i><span>保存する</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- アプリケーションロジック -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase初期設定 ---
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let currentUser = null;
+
+        // --- 状態管理 ---
+        let categories = ['人工呼吸器', '血液浄化', '体外循環', '医療機器管理', '医療安全', '基礎技術']; // 初期値
+        let items = [];
+        let records = [];
+        let deleteInfo = { type: '', id: '' };
+        let currentDate = new Date();
+
+        // --- 初期化 ---
+        document.addEventListener("DOMContentLoaded", () => {
+            initAuth();
+            generateTimeOptions();
+            switchTab('dashboard');
+            lucide.createIcons();
+            
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('first-record-date').value = today;
+            document.getElementById('quick-record-date').value = today;
+        });
+
+        // --- 認証とリアルタイムデータ同期 ---
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("認証エラー:", error);
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                setupRealtimeListeners();
+            }
+        });
+
+        function setupRealtimeListeners() {
+            if (!currentUser) return;
+
+            // カテゴリ設定の購読
+            const settingsRef = collection(db, 'artifacts', appId, 'public', 'data', 'settings');
+            onSnapshot(settingsRef, (snapshot) => {
+                let loadedCategories = null;
+                snapshot.forEach((doc) => {
+                    if (doc.id === 'categories') {
+                        loadedCategories = doc.data().list;
+                    }
+                });
+                if (loadedCategories && loadedCategories.length > 0) {
+                    categories = loadedCategories;
+                } else {
+                    // クラウドにまだない場合は初期値を保存
+                    saveCategoriesToCloud(categories);
+                }
+                updateCategorySelect('item-category');
+                updateCategoryModalList();
+                renderCategoriesView();
+            }, (error) => console.error("設定読み込みエラー:", error));
+
+            // 教育項目の購読
+            const itemsRef = collection(db, 'artifacts', appId, 'public', 'data', 'items');
+            onSnapshot(itemsRef, (snapshot) => {
+                items = [];
+                snapshot.forEach((doc) => {
+                    items.push({ id: doc.id, ...doc.data() });
+                });
+                // 更新があったら画面を再描画
+                renderItemsList();
+                renderCategoriesView();
+                updateDashboard();
+            }, (error) => console.error("項目読み込みエラー:", error));
+
+            // 教育履歴の購読
+            const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'records');
+            onSnapshot(recordsRef, (snapshot) => {
+                records = [];
+                snapshot.forEach((doc) => {
+                    records.push({ id: doc.id, ...doc.data() });
+                });
+                // 更新があったら画面を再描画
+                renderRecords();
+                updateDashboard();
+                renderItemsList(); 
+                renderCategoriesView();
+            }, (error) => console.error("履歴読み込みエラー:", error));
+        }
+
+        function generateId() {
+            return Math.random().toString(36).substring(2, 11);
+        }
+
+        // --- ユーティリティ ---
+        function generateTimeOptions() {
+            let options = '';
+            for(let h=0; h<24; h++) {
+                for(let m=0; m<60; m+=15) {
+                    let hh = h.toString().padStart(2, '0');
+                    let mm = m.toString().padStart(2, '0');
+                    let time = `${hh}:${mm}`;
+                    options += `<option value="${time}">${time}</option>`;
+                }
+            }
+            ['first-record-start', 'first-record-end', 'quick-record-start', 'quick-record-end'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    el.innerHTML = options;
+                    if(id.includes('start')) el.value = '09:00';
+                    if(id.includes('end')) el.value = '10:00';
+                }
+            });
+        }
+
+        function calculateHours(startTime, endTime) {
+            if(!startTime || !endTime) return 0;
+            let start = new Date(`2000-01-01T${startTime}`);
+            let end = new Date(`2000-01-01T${endTime}`);
+            if (end < start) end.setDate(end.getDate() + 1);
+            let diff = (end - start) / (1000 * 60 * 60);
+            return diff > 0 ? diff : 0;
+        }
+
+        window.updateCharCount = function(inputId, counterId) {
+            const input = document.getElementById(inputId);
+            const counter = document.getElementById(counterId);
+            if(input && counter) {
+                counter.textContent = `${input.value.length} / 200`;
+            }
+        };
+
+        function toggleModal(modalId, show) {
+            const modal = document.getElementById(modalId);
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('modal-active'), 10);
+            } else {
+                modal.classList.remove('modal-active');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+            lucide.createIcons();
+        }
+
+        // --- タブ制御 ---
+        window.switchTab = function(tabId) {
+            ['dashboard', 'items', 'categories'].forEach(id => {
+                document.getElementById(`tab-content-${id}`).classList.add('hidden');
+                const btn = document.getElementById(`tab-btn-${id}`);
+                if (id === tabId) {
+                    btn.className = 'px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-all duration-200 whitespace-nowrap bg-teal-50 text-teal-700 border border-teal-200/50';
+                } else {
+                    btn.className = 'px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-all duration-200 whitespace-nowrap text-slate-600 hover:bg-slate-100';
+                }
+            });
+            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+            
+            if (tabId === 'dashboard') updateDashboard();
+            else if (tabId === 'items') renderItemsList();
+            else if (tabId === 'categories') renderCategoriesView();
+        };
+
+        // --- ダッシュボード処理 ---
+        function updateDashboard() {
+            document.getElementById('stat-total-items').textContent = items.length;
+            document.getElementById('stat-total-records').textContent = records.length;
+            
+            let totalHours = 0;
+            let feedbackCompleted = 0;
+            records.forEach(r => {
+                totalHours += calculateHours(r.startTime, r.endTime);
+                if(r.feedbackStatus) feedbackCompleted++;
+            });
+            
+            document.getElementById('stat-total-hours').textContent = `${totalHours.toFixed(1)}時間`;
+            let rate = records.length > 0 ? Math.round((feedbackCompleted / records.length) * 100) : 0;
+            document.getElementById('stat-feedback-rate').textContent = `${rate}%`;
+            
+            renderCalendar();
+            renderRecords();
+        }
+
+        // --- カレンダー処理 ---
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('calendar-month-year').textContent = `${year}年 ${month + 1}月`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            
+            for(let i=0; i<firstDay; i++) {
+                grid.innerHTML += `<div class="p-1 sm:p-2 border border-slate-50 bg-slate-50/30 rounded-lg min-h-[40px] sm:min-h-[60px]"></div>`;
+            }
+            
+            for(let d=1; d<=daysInMonth; d++) {
+                const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const dayRecords = records.filter(r => r.date === dateStr);
+                
+                let badges = '';
+                if(dayRecords.length > 0) {
+                    badges = `<div class="mt-1 flex flex-wrap gap-1 justify-center">`;
+                    dayRecords.slice(0, 3).forEach(() => {
+                        badges += `<span class="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-teal-500"></span>`;
+                    });
+                    if(dayRecords.length > 3) badges += `<span class="text-[8px] text-slate-400 leading-none">..</span>`;
+                    badges += `</div>`;
+                }
+                
+                const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
+                const bgClass = isToday ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-100 hover:bg-slate-50';
+                const textClass = isToday ? 'text-teal-700 font-bold' : 'text-slate-700';
+                
+                grid.innerHTML += `
+                    <div class="p-1 sm:p-2 border ${bgClass} rounded-lg min-h-[40px] sm:min-h-[60px] flex flex-col items-center cursor-pointer transition" onclick="filterRecordsByDate('${dateStr}')">
+                        <span class="text-[10px] sm:text-xs ${textClass}">${d}</span>
+                        ${badges}
+                    </div>
+                `;
+            }
+        }
+
+        window.changeMonth = function(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        };
+
+        window.filterRecordsByDate = function(dateStr) {
+            document.getElementById('record-search').value = dateStr;
+            renderRecords();
+        };
+
+        // --- 履歴一覧 (テーブル) 処理 ---
+        window.renderRecords = function(customRecords = null) {
+            const search = document.getElementById('record-search').value.toLowerCase();
+            const tbody = document.getElementById('records-table-body');
+            const noMsg = document.getElementById('no-records-message');
+            
+            let displayRecords = customRecords || [...records];
+            
+            if(!customRecords && search) {
+                displayRecords = displayRecords.filter(r => {
+                    const item = items.find(i => i.id === r.itemId);
+                    const itemTitle = item ? item.title.toLowerCase() : '';
+                    return r.date.includes(search) || 
+                           r.trainer.toLowerCase().includes(search) || 
+                           r.content.toLowerCase().includes(search) ||
+                           itemTitle.includes(search);
+                });
+            }
+            
+            // 日付の降順
+            displayRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if(displayRecords.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.classList.remove('hidden');
+                return;
+            }
+            
+            noMsg.classList.add('hidden');
+            let html = '';
+            
+            displayRecords.forEach(r => {
+                const item = items.find(i => i.id === r.itemId) || {title: '削除された項目'};
+                
+                let feedbackHtml = '';
+                if(r.feedbackStatus) {
+                    const colors = { 'A': 'text-emerald-700 bg-emerald-100', 'B': 'text-amber-700 bg-amber-100', 'C': 'text-rose-700 bg-rose-100' };
+                    feedbackHtml = `
+                        <div class="flex flex-col gap-1 items-start">
+                            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${colors[r.feedbackStatus]}">評価: ${r.feedbackStatus}</span>
+                            <span class="text-[11px] text-slate-600 line-clamp-2">${r.feedbackText}</span>
+                            <button onclick="openFeedbackModal('${r.id}')" class="text-[10px] text-slate-400 hover:text-emerald-600 underline">編集</button>
+                        </div>
+                    `;
+                } else {
+                    feedbackHtml = `
+                        <div class="flex flex-col gap-1 items-start">
+                            <span class="text-[11px] text-slate-600 line-clamp-2">${r.content}</span>
+                            <button onclick="openFeedbackModal('${r.id}')" class="mt-1 text-[10px] text-teal-600 hover:text-teal-800 flex items-center space-x-1 border border-teal-200 bg-teal-50 px-2 py-1 rounded transition">
+                                <i data-lucide="edit-3" class="w-3 h-3"></i><span>評価を入力</span>
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="text-sm font-medium text-slate-900">${r.date}</div>
+                            <div class="text-xs text-slate-500">${r.startTime}-${r.endTime}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm font-bold text-slate-800 line-clamp-2">${item.title}</div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="text-sm text-slate-700 flex items-center space-x-1">
+                                <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
+                                <span>${r.trainer}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 min-w-[200px]">
+                            ${feedbackHtml}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center">
+                            <button onclick="openQuickRecordModal('${r.itemId}', '${r.id}')" class="text-slate-400 hover:text-indigo-600 p-1 transition" title="編集"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                            <button onclick="confirmDelete('record', '${r.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition" title="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            lucide.createIcons();
+        };
+
+        // --- アコーディオン (教育項目一覧) 処理 ---
+        window.renderItemsList = function() {
+            const search = document.getElementById('item-search').value.toLowerCase();
+            const container = document.getElementById('items-list-container');
+            const noMsg = document.getElementById('no-items-message');
+            
+            let filteredItems = items.filter(i => 
+                i.title.toLowerCase().includes(search) || 
+                i.category.toLowerCase().includes(search)
+            );
+            
+            if(filteredItems.length === 0) {
+                container.innerHTML = '';
+                noMsg.classList.remove('hidden');
+                return;
+            }
+            
+            noMsg.classList.add('hidden');
+            let html = '';
+            
+            filteredItems.forEach(item => {
+                const itemRecords = records.filter(r => r.itemId === item.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+                const totalCount = itemRecords.length;
+                let totalHrs = 0;
+                itemRecords.forEach(r => totalHrs += calculateHours(r.startTime, r.endTime));
+                
+                let recordsHtml = '';
+                if(totalCount > 0) {
+                    recordsHtml = `<div class="mt-4 space-y-2 border-t border-slate-100 pt-4">`;
+                    itemRecords.forEach((r, idx) => {
+                        recordsHtml += `
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 gap-2">
+                                <div class="flex items-start space-x-3">
+                                    <div class="bg-teal-100 text-teal-700 text-xs font-bold px-2 py-1 rounded h-max whitespace-nowrap">第${totalCount - idx}回</div>
+                                    <div>
+                                        <div class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                                            <span>${r.date}</span>
+                                            <span class="text-xs font-normal text-slate-500">${r.startTime}-${r.endTime}</span>
+                                        </div>
+                                        <div class="text-xs text-slate-600 mt-1"><span class="font-medium">指導者:</span> ${r.trainer}</div>
+                                        <div class="text-xs text-slate-600 mt-0.5 line-clamp-1" title="${r.content}">${r.content}</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2 mt-2 sm:mt-0 justify-end">
+                                    ${r.feedbackStatus ? `<span class="text-[10px] bg-slate-200 px-2 py-1 rounded font-semibold">評価: ${r.feedbackStatus}</span>` : `<button onclick="openFeedbackModal('${r.id}')" class="text-[10px] text-teal-600 border border-teal-200 px-2 py-1 rounded hover:bg-teal-50">評価未完</button>`}
+                                    <button onclick="openQuickRecordModal('${item.id}', '${r.id}')" class="text-slate-400 hover:text-indigo-600 p-1"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    recordsHtml += `</div>`;
+                } else {
+                    recordsHtml = `<div class="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-400 text-center">履歴はまだありません。</div>`;
+                }
+
+                html += `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                        <div class="p-4 cursor-pointer hover:bg-slate-50 transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3" onclick="toggleAccordion('${item.id}')">
+                            <div class="flex-grow">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">${item.category}</span>
+                                    <h3 class="text-base font-bold text-slate-900">${item.title}</h3>
+                                </div>
+                                <p class="text-xs text-slate-500 line-clamp-1">${item.description || '概要なし'}</p>
+                            </div>
+                            <div class="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-end">
+                                <div class="text-right flex space-x-4">
+                                    <div><p class="text-[10px] text-slate-400">実施回数</p><p class="text-sm font-bold text-slate-700">${totalCount}回</p></div>
+                                    <div><p class="text-[10px] text-slate-400">総時間</p><p class="text-sm font-bold text-slate-700">${totalHrs.toFixed(1)}h</p></div>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="event.stopPropagation(); openQuickRecordModal('${item.id}')" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition" title="履歴追加"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                                    <button onclick="event.stopPropagation(); openItemModal('${item.id}')" class="p-1.5 text-slate-400 hover:bg-slate-100 rounded transition" title="項目編集"><i data-lucide="settings-2" class="w-4 h-4"></i></button>
+                                    <button onclick="event.stopPropagation(); confirmDelete('item', '${item.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                    <i data-lucide="chevron-down" id="chevron-${item.id}" class="w-5 h-5 text-slate-400 transition-transform duration-300 ml-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="content-${item.id}" class="accordion-content bg-white px-4 pb-4">
+                            ${recordsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            lucide.createIcons();
+        };
+
+        window.toggleAccordion = function(id) {
+            const content = document.getElementById(`content-${id}`);
+            const chevron = document.getElementById(`chevron-${id}`);
+            if(content.classList.contains('open')) {
+                content.classList.remove('open');
+                chevron.style.transform = 'rotate(0deg)';
+            } else {
+                content.classList.add('open');
+                chevron.style.transform = 'rotate(180deg)';
+            }
+        };
+
+        // --- カテゴリ別ビュー ---
+        function renderCategoriesView() {
+            const container = document.getElementById('category-groups-container');
+            const noMsg = document.getElementById('no-category-groups-message');
+            
+            if(items.length === 0) {
+                container.innerHTML = '';
+                noMsg.classList.remove('hidden');
+                return;
+            }
+            noMsg.classList.add('hidden');
+            
+            let html = '';
+            categories.forEach(cat => {
+                const catItems = items.filter(i => i.category === cat);
+                if(catItems.length === 0) return;
+                
+                let catRecordsCount = 0;
+                let catItemsHtml = '';
+                
+                catItems.forEach(item => {
+                    const itemRecords = records.filter(r => r.itemId === item.id);
+                    catRecordsCount += itemRecords.length;
+                    
+                    catItemsHtml += `
+                        <div class="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 transition rounded-lg">
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">${item.title}</h4>
+                                <p class="text-xs text-slate-500 line-clamp-1">${item.description || '-'}</p>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded-full">${itemRecords.length}件の記録</span>
+                                <button onclick="openQuickRecordModal('${item.id}')" class="text-xs text-indigo-600 hover:underline">記録追加</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+                            <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                                <i data-lucide="folder" class="w-4 h-4 text-teal-600"></i>
+                                <span>${cat}</span>
+                            </h3>
+                            <span class="text-xs font-semibold text-slate-500">計 ${catItems.length}項目 / 累計 ${catRecordsCount}回</span>
+                        </div>
+                        <div class="bg-white p-2">
+                            ${catItemsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // --- Firebase保存処理関数群 ---
+
+        window.updateCategorySelect = function(selectId) {
+            const select = document.getElementById(selectId);
+            if(!select) return;
+            select.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        };
+
+        window.openItemModal = function(itemId = null) {
+            updateCategorySelect('item-category');
+            const form = document.getElementById('item-form');
+            form.reset();
+            document.getElementById('item-edit-id').value = '';
+            
+            if(itemId) {
+                const item = items.find(i => i.id === itemId);
+                if(item) {
+                    document.getElementById('item-modal-title').textContent = '教育項目の編集';
+                    document.getElementById('item-edit-id').value = item.id;
+                    document.getElementById('item-title').value = item.title;
+                    document.getElementById('item-category').value = item.category;
+                    document.getElementById('item-description').value = item.description;
+                    document.getElementById('first-record-section').style.display = 'none';
+                }
+            } else {
+                document.getElementById('item-modal-title').textContent = '新規教育項目の登録';
+                document.getElementById('first-record-section').style.display = 'block';
+                updateCharCount('first-record-content', 'char-counter-first-content');
+            }
+            toggleModal('item-modal', true);
+        };
+
+        window.closeItemModal = function() { toggleModal('item-modal', false); };
+
+        window.saveEducationItem = async function(e) {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const editId = document.getElementById('item-edit-id').value;
+            const title = document.getElementById('item-title').value.trim();
+            const category = document.getElementById('item-category').value;
+            const description = document.getElementById('item-description').value.trim();
+            
+            const targetItemId = editId || generateId();
+            const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', targetItemId);
+
+            try {
+                // 項目の保存
+                await setDoc(itemRef, {
+                    title,
+                    category,
+                    description,
+                    createdAt: editId ? (items.find(i=>i.id===editId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+                }, { merge: true });
+
+                // 新規作成時の初回履歴登録
+                if (!editId) {
+                    const date = document.getElementById('first-record-date').value;
+                    const trainer = document.getElementById('first-record-trainer').value.trim();
+                    const content = document.getElementById('first-record-content').value.trim();
+                    
+                    if(date && trainer) {
+                        const recId = generateId();
+                        const recRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', recId);
+                        await setDoc(recRef, {
+                            itemId: targetItemId,
+                            date: date,
+                            trainer: trainer,
+                            startTime: document.getElementById('first-record-start').value,
+                            endTime: document.getElementById('first-record-end').value,
+                            content: content || '初回登録',
+                            feedbackStatus: '',
+                            feedbackText: ''
+                        });
+                    }
+                }
+                closeItemModal();
+            } catch (error) {
+                console.error("保存エラー:", error);
+                alert("保存に失敗しました。");
+            }
+        };
+
+        window.confirmDelete = function(type, id) {
+            deleteInfo = { type, id };
+            let msg = '';
+            if(type === 'item') msg = 'この教育項目を削除します。紐づくすべての教育履歴も削除されますがよろしいですか？';
+            else if(type === 'record') msg = 'この教育履歴を削除してもよろしいですか？';
+            else if(type === 'category') msg = 'このカテゴリを削除しますか？(※使用中の項目がある場合は削除できません)';
+            
+            document.getElementById('delete-modal-text').textContent = msg;
+            toggleModal('delete-modal', true);
+        };
+        
+        window.closeDeleteModal = function() { toggleModal('delete-modal', false); };
+        
+        document.getElementById('delete-confirm-btn').addEventListener('click', async () => {
+            if (!currentUser) return;
+            const { type, id } = deleteInfo;
+            
+            try {
+                if (type === 'item') {
+                    // 項目の削除
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', id));
+                    // 紐づく履歴の削除
+                    const relatedRecords = records.filter(r => r.itemId === id);
+                    for (const r of relatedRecords) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id));
+                    }
+                } else if (type === 'record') {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id));
+                } else if (type === 'category') {
+                    const isUsed = items.some(i => i.category === id);
+                    if(isUsed) {
+                        alert('このカテゴリは使用中のため削除できません。');
+                        closeDeleteModal();
+                        return;
+                    }
+                    const newCategories = categories.filter(c => c !== id);
+                    await saveCategoriesToCloud(newCategories);
+                }
+                closeDeleteModal();
+            } catch (error) {
+                console.error("削除エラー:", error);
+            }
+        });
+
+        window.openFeedbackModal = function(recordId) {
+            const r = records.find(x => x.id === recordId);
+            if(!r) return;
+            const item = items.find(i => i.id === r.itemId);
+            
+            document.getElementById('feedback-record-id').value = r.id;
+            document.getElementById('feedback-target-title').textContent = item ? item.title : '不明な項目';
+            document.getElementById('feedback-text').value = r.feedbackText || '';
+            updateCharCount('feedback-text', 'char-counter-feedback');
+            
+            ['A', 'B', 'C'].forEach(s => document.getElementById(`btn-status-${s}`).classList.remove('ring-2', 'ring-offset-1'));
+            if(r.feedbackStatus) setFeedbackStatus(r.feedbackStatus);
+            else document.getElementById('feedback-status-value').value = '';
+            
+            toggleModal('feedback-modal', true);
+        };
+        
+        window.setFeedbackStatus = function(status) {
+            document.getElementById('feedback-status-value').value = status;
+            ['A', 'B', 'C'].forEach(s => {
+                const btn = document.getElementById(`btn-status-${s}`);
+                if(s === status) {
+                    if(s==='A') btn.classList.add('ring-2', 'ring-emerald-500', 'ring-offset-1', 'bg-emerald-50');
+                    if(s==='B') btn.classList.add('ring-2', 'ring-amber-500', 'ring-offset-1', 'bg-amber-50');
+                    if(s==='C') btn.classList.add('ring-2', 'ring-rose-500', 'ring-offset-1', 'bg-rose-50');
+                } else {
+                    btn.classList.remove('ring-2', 'ring-emerald-500', 'ring-amber-500', 'ring-rose-500', 'ring-offset-1', 'bg-emerald-50', 'bg-amber-50', 'bg-rose-50');
+                }
+            });
+        };
+        
+        window.closeFeedbackModal = function() { toggleModal('feedback-modal', false); };
+        
+        window.saveFeedback = async function() {
+            if (!currentUser) return;
+            const id = document.getElementById('feedback-record-id').value;
+            const status = document.getElementById('feedback-status-value').value;
+            const text = document.getElementById('feedback-text').value.trim();
+            
+            if(!status || !text) {
+                alert('ステータスと詳細コメントは必須です。');
+                return;
+            }
+            
+            try {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'records', id);
+                await setDoc(ref, { feedbackStatus: status, feedbackText: text }, { merge: true });
+                closeFeedbackModal();
+            } catch (error) {
+                console.error("評価保存エラー:", error);
+            }
+        };
+
+        window.openQuickRecordModal = function(itemId, editRecordId = null) {
+            const item = items.find(i => i.id === itemId);
+            if(!item) return;
+            
+            document.getElementById('quick-record-form').reset();
+            document.getElementById('quick-record-item-id').value = itemId;
+            document.getElementById('quick-record-target-title').textContent = item.title;
+            
+            if(editRecordId) {
+                const r = records.find(x => x.id === editRecordId);
+                if(r) {
+                    document.getElementById('quick-record-title').textContent = '教育履歴の編集';
+                    document.getElementById('quick-record-icon').setAttribute('data-lucide', 'edit');
+                    document.getElementById('quick-record-edit-id').value = r.id;
+                    document.getElementById('quick-record-date').value = r.date;
+                    document.getElementById('quick-record-trainer').value = r.trainer;
+                    document.getElementById('quick-record-start').value = r.startTime;
+                    document.getElementById('quick-record-end').value = r.endTime;
+                    document.getElementById('quick-record-content').value = r.content;
+                }
+            } else {
+                document.getElementById('quick-record-title').textContent = '教育履歴の登録';
+                document.getElementById('quick-record-icon').setAttribute('data-lucide', 'file-plus');
+                document.getElementById('quick-record-edit-id').value = '';
+                document.getElementById('quick-record-date').value = new Date().toISOString().split('T')[0];
+            }
+            
+            updateCharCount('quick-record-content', 'char-counter-quick-content');
+            lucide.createIcons();
+            toggleModal('quick-record-modal', true);
+        };
+
+        window.closeQuickRecordModal = function() { toggleModal('quick-record-modal', false); };
+
+        window.saveQuickRecord = async function(e) {
+            e.preventDefault();
+            if (!currentUser) return;
+            
+            const itemId = document.getElementById('quick-record-item-id').value;
+            const editId = document.getElementById('quick-record-edit-id').value;
+            const targetId = editId || generateId();
+            
+            const newData = {
+                itemId: itemId,
+                date: document.getElementById('quick-record-date').value,
+                trainer: document.getElementById('quick-record-trainer').value.trim(),
+                startTime: document.getElementById('quick-record-start').value,
+                endTime: document.getElementById('quick-record-end').value,
+                content: document.getElementById('quick-record-content').value.trim()
+            };
+            
+            try {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'records', targetId);
+                if(editId) {
+                    await setDoc(ref, newData, { merge: true });
+                } else {
+                    await setDoc(ref, { ...newData, feedbackStatus: '', feedbackText: '' });
+                }
+                closeQuickRecordModal();
+            } catch (error) {
+                console.error("履歴保存エラー:", error);
+            }
+        };
+
+        window.openCategoryModal = function() {
+            updateCategoryModalList();
+            toggleModal('category-modal', true);
+        };
+        
+        window.closeCategoryModal = function() { 
+            toggleModal('category-modal', false);
+            updateCategorySelect('item-category');
+        };
+        
+        window.updateCategoryModalList = function() {
+            const list = document.getElementById('category-modal-list');
+            list.innerHTML = categories.map(c => `
+                <div class="flex justify-between items-center p-2 bg-white rounded border border-slate-100">
+                    <span class="text-sm text-slate-700">${c}</span>
+                    <button onclick="confirmDelete('category', '${c}')" class="text-slate-400 hover:text-rose-600 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        };
+        
+        window.addCategory = async function() {
+            const input = document.getElementById('new-category-name');
+            const val = input.value.trim();
+            if(val && !categories.includes(val)) {
+                const newCategories = [...categories, val];
+                await saveCategoriesToCloud(newCategories);
+                input.value = '';
+            }
+        };
+
+        async function saveCategoriesToCloud(newCategoriesList) {
+            if (!currentUser) return;
+            try {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'categories');
+                await setDoc(ref, { list: newCategoriesList });
+                // onSnapshotが検知してUIを更新するため、ここではあえてUI更新を直接呼ばない
+            } catch (error) {
+                console.error("カテゴリ保存エラー:", error);
+            }
+        }
+    </script>
+</body>
+</html>
